@@ -1,0 +1,21 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = __importDefault(require("../middlewares/auth"));
+const UserController_1 = require("../controllers/UserController");
+const upload_1 = __importDefault(require("../middlewares/upload"));
+const router = (0, express_1.Router)();
+router.get("/list", auth_1.default, UserController_1.getUsersList);
+router.get("/skill-matched-list", auth_1.default, UserController_1.getSkillMatchedUsersList);
+router.get("/search", UserController_1.searchUser);
+router.put("/update", auth_1.default, upload_1.default.single("image"), UserController_1.updateUser);
+router.post("/friend-request", auth_1.default, UserController_1.sendFriendRequest);
+router.put("/friend-request", auth_1.default, UserController_1.acceptFriendRequest);
+router.get("/friend-requests", auth_1.default, UserController_1.getFriendRequests);
+router.get("/friends", auth_1.default, UserController_1.getFriends);
+router.post("/forgot-password", UserController_1.forgotPassword);
+router.get("/:id", UserController_1.getUserProfile);
+exports.default = router;
