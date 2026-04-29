@@ -11,7 +11,8 @@ export const initSocket = (server: any) => {
     },
   });
 
-  const onlineUsers = new Map();
+  // const onlineUsers = new Map();
+  const onlineUsers = new Map<string, string>(); 
 
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
@@ -19,6 +20,10 @@ export const initSocket = (server: any) => {
      socket.on("join", (userId: string) => {
        if (!userId) return;
        socket.join(userId);
+       onlineUsers.set(userId, socket.id);
+
+        // broadcast to everyone
+        io.emit("user_online", userId);
      });
 
     socket.on("send_message", (data: any) => {
@@ -33,9 +38,27 @@ export const initSocket = (server: any) => {
       io.to(receiver).emit("stop_typing", { sender });
     });
 
-     socket.on("disconnect", () => {
-       console.log("User disconnected:", socket.id);
-     });
+    //  socket.on("disconnect", () => {
+    //    console.log("User disconnected:", socket.id);
+    //  });
+
+    socket.on("disconnect", () => {
+      let disconnectedUserId: string | null = null;
+
+      for (let [userId, sockId] of onlineUsers.entries()) {
+        if (sockId === socket.id) {
+          disconnectedUserId = userId;
+          onlineUsers.delete(userId);
+          break;
+        }
+      }
+
+      if (disconnectedUserId) {
+        io.emit("user_offline", disconnectedUserId);
+      }
+
+      console.log("User disconnected:", socket.id);
+    });
     
   });
 };
