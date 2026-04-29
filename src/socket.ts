@@ -21,9 +21,11 @@ export const initSocket = (server: any) => {
        if (!userId) return;
        socket.join(userId);
        onlineUsers.set(userId, socket.id);
-
+        socket.emit("online_users_list", Array.from(onlineUsers.keys()));
+        
         // broadcast to everyone
-        io.emit("user_online", userId);
+        // io.emit("user_online", userId);
+        socket.broadcast.emit("user_online", userId);
      });
 
     socket.on("send_message", (data: any) => {
