@@ -127,7 +127,7 @@ export const getMessages = async (req:any, res:any) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
-
+    
     // Mark messages as seen (only those NOT sent by me)
     await Message.updateMany(
       {

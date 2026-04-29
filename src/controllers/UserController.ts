@@ -401,14 +401,25 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
     });
 
     const io = getIO();
-    io.to(receiver.toString()).emit("friend_request_received", {
-      _id: request._id,
-      sender: {
-        _id: sender,
-        name: (req as any).user?.name,
-        image: (req as any).user?.image
-      }
-    });
+    // io.to(receiver.toString()).emit("friend_request_received", {
+    //   _id: request._id,
+    //   sender: {
+    //     _id: sender,
+    //     name: (req as any).user?.name,
+    //     image: (req as any).user?.image
+    //   }
+    // });
+
+    setTimeout(() => {
+      io.to(receiver.toString()).emit("friend_request_received", {
+        _id: request._id,
+        sender: {
+          _id: sender,
+          name: (req as any).user?.name,
+          image: (req as any).user?.image
+        }
+      });
+    }, 200);
 
     return res.status(201).json({
       message: "Friend request sent",
