@@ -33,11 +33,11 @@ export const initSocket = (server: any) => {
     });
 
     socket.on("typing", ({ sender, receiver }) => {
-      io.to(receiver).emit("typing", { sender });
+      socket.to(receiver).emit("typing");
     });
 
     socket.on("stop_typing", ({ sender, receiver }) => {
-      io.to(receiver).emit("stop_typing", { sender });
+      socket.to(receiver).emit("stop_typing");
     });
 
     //  socket.on("disconnect", () => {
