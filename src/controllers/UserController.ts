@@ -48,14 +48,29 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const filter = req.query.filter || "matched"; // default matched
     const currentUserId = req.user?.id;
 
-    // Get users (exclude self)
+    if (!currentUserId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    // 🔥 Get current user skills
+    const meUser = await User.findById(currentUserId)
+      .select("skills")
+      .lean();
+
+    const mySkills: string[] = meUser?.skills || [];
+
+    // 🔥 Get users (exclude self)
     const users = await User.find({ _id: { $ne: currentUserId } })
       .skip(skip)
       .limit(limit)
       .lean();
 
+    // 🔥 Friend Requests (sent)
     const sentRequests = await FriendRequest.find({
       sender: currentUserId,
       status: "pending",
@@ -65,6 +80,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       sentRequests.map((r) => r.receiver.toString())
     );
 
+    // 🔥 Friend Requests (received)
     const receivedRequests = await FriendRequest.find({
       receiver: currentUserId,
       status: "pending",
@@ -74,8 +90,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       receivedRequests.map((r) => r.sender.toString())
     );
 
-    const me = String(currentUserId);
-
+    // 🔥 Friends
     const friends = await Friend.find({
       $or: [
         { user1: currentUserId },
@@ -84,6 +99,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
     }).lean();
 
     const friendSet = new Set<string>();
+    const me = String(currentUserId);
 
     friends.forEach((f: any) => {
       const user1 = String(f.user1);
@@ -96,28 +112,55 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    console.log("CURRENT USER:", currentUserId);
-    console.log("FRIENDS:", friends);
-    console.log("FRIEND SET:", Array.from(friendSet));
-
-    // Attach flags
-    const usersWithFlags = users.map((user: any) => {
+    // 🔥 Attach flags + matching logic
+    let usersWithFlags = users.map((user: any) => {
       const id = user._id.toString();
+
+      const userSkills: string[] = user.skills || [];
+
+      const commonSkills = userSkills.filter((skill: string) =>
+        mySkills.some(
+          (my) => my.toLowerCase() === skill.toLowerCase()
+        )
+      );
+
+      const matchCount = commonSkills.length;
+
+      const matchPercentage = mySkills.length
+        ? Math.round((matchCount / mySkills.length) * 100)
+        : 0;
 
       return {
         ...user,
         hasSentRequest: sentSet.has(id),
         hasReceivedRequest: receivedSet.has(id),
         isFriend: friendSet.has(id),
+        matchPercentage,
+        matchCount,
+        commonSkills,
       };
     });
 
+    // 🔥 SORT by match %
+    usersWithFlags.sort(
+      (a, b) => b.matchPercentage - a.matchPercentage
+    );
+
+    // 🔥 FILTER
+    if (filter === "matched") {
+      usersWithFlags = usersWithFlags.filter(
+        (u) => u.matchPercentage > 0
+      );
+    }
+
+    // 🔥 TOTAL COUNT (for pagination)
     const total = await User.countDocuments({
       _id: { $ne: currentUserId },
     });
 
     return res.status(200).json({
-      message: "List retrieved successfully",
+      message: "Users fetched successfully",
+      success: true,
       data: usersWithFlags,
       pagination: {
         total,
@@ -125,7 +168,6 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      success: true,
     });
 
   } catch (error: any) {
