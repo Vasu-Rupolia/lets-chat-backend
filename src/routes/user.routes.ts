@@ -17,7 +17,7 @@ import upload from "../middlewares/upload";
 
 const router = Router();
 
-router.get("/list", auth, getUsersList);
+router.get("/", auth, getUsersList);
 router.get("/skill-matched-list", auth, getSkillMatchedUsersList);
 router.get("/search", searchUser);
 
