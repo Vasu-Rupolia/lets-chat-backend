@@ -151,7 +151,12 @@ export const getMessages = async (req:any, res:any) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
-    res.json({ success: true, messages });
+    // res.json({ success: true, messages });
+    res.json({
+      success: true,
+      messages: messages.reverse(),
+      hasMore: messages.length === limit,
+    });
 
   } catch (err) {
     console.error(err);
