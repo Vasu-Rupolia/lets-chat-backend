@@ -140,8 +140,16 @@ export const getMessages = async (req:any, res:any) => {
       }
     );
 
+    // const messages = await Message.find({ conversationId })
+    //   .sort({ createdAt: 1 });
+
+    const page = Number(req.query.page) || 1;
+    const limit = 20;
+
     const messages = await Message.find({ conversationId })
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     res.json({ success: true, messages });
 
