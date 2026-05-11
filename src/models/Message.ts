@@ -14,19 +14,63 @@
 
 // export default mongoose.model<IMessage>("Message", schema);
 
+// import mongoose from "mongoose";
+
+// const messageSchema = new mongoose.Schema({
+//   conversationId: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: "Conversation"
+//   },
+//   sender: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: "User"
+//   },
+//   text: String,
+//   seen: { type: Boolean, default: false }
+// }, { timestamps: true });
+
+// export default mongoose.model("Message", messageSchema);
+
 import mongoose from "mongoose";
 
-const messageSchema = new mongoose.Schema({
-  conversationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Conversation"
+const messageSchema = new mongoose.Schema(
+  {
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+    },
+
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    text: {
+      type: String,
+      default: "",
+    },
+
+    // TEXT OR VOICE
+    type: {
+      type: String,
+      enum: ["text", "voice"],
+      default: "text",
+    },
+
+    // AUDIO FILE NAME
+    audio: {
+      type: String,
+      default: null,
+    },
+
+    seen: {
+      type: Boolean,
+      default: false,
+    },
   },
-  sender: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  },
-  text: String,
-  seen: { type: Boolean, default: false }
-}, { timestamps: true });
+  {
+    timestamps: true,
+  }
+);
 
 export default mongoose.model("Message", messageSchema);
