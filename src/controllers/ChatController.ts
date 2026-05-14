@@ -27,39 +27,128 @@ import { getIO } from "../socket";
 //   res.json({ success: true, message });
 // };
 
-export const sendMessage = async (req: any, res: any) => {
-  const { conversationId, text } = req.body;
-  const sender = req.user.id;
+// export const sendMessage = async (req: any, res: any) => {
+//   const { conversationId, text } = req.body;
+//   const sender = req.user.id;
 
-  // 🔥 get conversation
-  const conversation = await Conversation.findById(conversationId);
+//   // 🔥 get conversation
+//   const conversation = await Conversation.findById(conversationId);
 
-  if (!conversation) {
-    return res.status(404).json({ message: "Conversation not found" });
+//   if (!conversation) {
+//     return res.status(404).json({ message: "Conversation not found" });
+//   }
+
+//   // 🔥 find receiver
+//   const receiverId = conversation.participants.find(
+//     (p: any) => p.toString() !== sender
+//   );
+
+//   const message = await Message.create({
+//     conversationId,
+//     sender,
+//     text
+//   });
+
+//   await Conversation.findByIdAndUpdate(conversationId, {
+//     lastMessage: text,
+//     lastMessageAt: new Date()
+//   });
+
+//   const io = getIO();
+
+//   io.to(sender).emit("receive_message", message);
+//   io.to(receiverId!.toString()).emit("receive_message", message);
+
+//   res.json({ success: true, message });
+// };
+
+export const sendMessage = async (
+  req: any,
+  res: any
+) => {
+  try {
+
+    const {
+      conversationId,
+      text,
+      type,
+    } = req.body;
+
+    const sender = req.user.id;
+
+    const conversation =
+      await Conversation.findById(
+        conversationId
+      );
+
+    if (!conversation) {
+      return res.status(404).json({
+        message: "Conversation not found",
+      });
+    }
+
+    const receiverId =
+      conversation.participants.find(
+        (p: any) =>
+          p.toString() !== sender
+      );
+
+    let messageData: any = {
+      conversationId,
+      sender,
+      type: type || "text",
+    };
+
+    // TEXT MESSAGE
+    if (type === "text") {
+      messageData.text = text;
+    }
+
+    // VOICE MESSAGE
+    if (type === "voice" && req.file) {
+      messageData.audio =
+        `/uploads/voice/${req.file.filename}`;
+    }
+
+    const message =
+      await Message.create(messageData);
+
+    await Conversation.findByIdAndUpdate(
+      conversationId,
+      {
+        lastMessage:
+          type === "voice"
+            ? "🎤 Voice message"
+            : text,
+
+        lastMessageAt: new Date(),
+      }
+    );
+
+    const io = getIO();
+
+    io.to(sender).emit(
+      "receive_message",
+      message
+    );
+
+    io.to(receiverId!.toString()).emit(
+      "receive_message",
+      message
+    );
+
+    res.json({
+      success: true,
+      message,
+    });
+
+  } catch (err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
-
-  // 🔥 find receiver
-  const receiverId = conversation.participants.find(
-    (p: any) => p.toString() !== sender
-  );
-
-  const message = await Message.create({
-    conversationId,
-    sender,
-    text
-  });
-
-  await Conversation.findByIdAndUpdate(conversationId, {
-    lastMessage: text,
-    lastMessageAt: new Date()
-  });
-
-  const io = getIO();
-
-  io.to(sender).emit("receive_message", message);
-  io.to(receiverId!.toString()).emit("receive_message", message);
-
-  res.json({ success: true, message });
 };
 
 export const createOrGetConversation = async (req:any, res:any) => {

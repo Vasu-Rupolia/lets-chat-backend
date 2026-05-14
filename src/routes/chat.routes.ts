@@ -8,9 +8,11 @@ import {
   getMessages
 } from "../controllers/ChatController";
 
+import {uploadVoice} from "../middlewares/uploadVoice";
+
 const router = Router();
 
-router.post('/messages', auth, sendMessage);
+router.post('/messages', auth, uploadVoice.single("audio"), sendMessage);
 router.get('/conversations', auth, getConversations);
 router.post('/conversations', auth, createOrGetConversation);
 router.get('/messages/:conversationId', auth, getMessages);
