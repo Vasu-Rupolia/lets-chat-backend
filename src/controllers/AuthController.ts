@@ -122,6 +122,84 @@ import bcrypt from "bcrypt";
 //   }
 // };
 
+// export const signup = async (req: Request, res: Response) => {
+//   try {
+//     let { 
+//       name, 
+//       email, 
+//       password, 
+//       gender, 
+//       dob, 
+//       mobile_number, 
+//       skills, 
+//       about 
+//     } = req.body;
+
+//     if (!name || !email || !password) {
+//       return res.status(400).json({ message: "All required fields missing" });
+//     }
+
+//     if (!gender) {
+//       return res.status(400).json({ message: "Gender is required" });
+//     }
+
+//     if (!dob) {
+//       return res.status(400).json({ message: "DOB is required" });
+//     }
+
+//     if (password.length < 6) {
+//       return res.status(400).json({ message: "Password must be at least 6 characters" });
+//     }
+
+//     email = email.toLowerCase();
+
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser) {
+//       return res.status(400).json({ message: "User already exists" });
+//     }
+
+//     // Parse skills
+//     let parsedSkills: string[] = [];
+//     if (skills) {
+//       try {
+//         parsedSkills = JSON.parse(skills);
+//       } catch {
+//         parsedSkills = [];
+//       }
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+
+//     const user = await User.create({
+//       name,
+//       email,
+//       password: hashedPassword,
+//       gender,
+//       dob,
+//       mobile_number,
+//       skills: parsedSkills,
+//       about: about || "",
+//       image: req.file ? req.file.filename : null,
+//     });
+
+//     const userObj: any = user.toObject();
+//     delete userObj.password;
+
+//     return res.status(201).json({
+//       message: "User created successfully",
+//       user: userObj,
+//     });
+
+//   } catch (err: any) {
+//     return res.status(500).json({
+//       message: "Server error",
+//       error: err.message,
+//     });
+//   }
+// };
+
+import jwt from "jsonwebtoken";
+
 export const signup = async (req: Request, res: Response) => {
   try {
     let { 
@@ -154,12 +232,13 @@ export const signup = async (req: Request, res: Response) => {
     email = email.toLowerCase();
 
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Parse skills
     let parsedSkills: string[] = [];
+
     if (skills) {
       try {
         parsedSkills = JSON.parse(skills);
@@ -182,11 +261,19 @@ export const signup = async (req: Request, res: Response) => {
       image: req.file ? req.file.filename : null,
     });
 
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
     const userObj: any = user.toObject();
+
     delete userObj.password;
 
     return res.status(201).json({
       message: "User created successfully",
+      token,
       user: userObj,
     });
 
