@@ -25,4 +25,6 @@ jobs:
 
             npm install
 
+            npm run build
+
             pm2 restart chat-backend
