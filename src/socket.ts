@@ -5,7 +5,7 @@ let io: Server;
 export const initSocket = (server: any) => {
   io = new Server(server, {
     cors: {
-      origin: "http://85.121.120.156:3000",
+      origin: "https://skillbarter.codevocab.com",
       methods: ["GET", "POST"],
       credentials: true,
     },
