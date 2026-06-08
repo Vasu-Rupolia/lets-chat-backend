@@ -21,7 +21,8 @@ const server = http.createServer(app);
 initSocket(server);
 
 app.use(cors({
-  origin: "http://85.121.120.156:3000",
+  // origin: "http://85.121.120.156:3000",
+  origin: "https://skillbarter.codevocab.com",
   credentials: true,
 }));
 app.use(express.json());
