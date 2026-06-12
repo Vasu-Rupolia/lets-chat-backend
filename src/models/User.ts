@@ -8,6 +8,8 @@ export interface IUser extends Document {
   dob: Date;
   mobile_number?: string;
   skills?: string[];
+  skillsToLearn?: string[];
+
   about: string;
   image?: string | null;
   resetToken: String,
@@ -41,6 +43,10 @@ const schema = new mongoose.Schema<IUser>(
     dob: Date,
     mobile_number: String,
     skills: {
+      type: [String],
+      default: [],
+    },
+    skillsToLearn: {
       type: [String],
       default: [],
     },

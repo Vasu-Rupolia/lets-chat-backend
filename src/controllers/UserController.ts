@@ -301,14 +301,41 @@ export const updateUser = async (req: Request, res: Response) => {
       mobile_number,
       about,
       skills,
+      skillsToLearn
     } = req.body;
 
     let parsedSkills: string[] = [];
-    if (skills) {
+    let parsedSkillsToLearn: string[] = [];
+
+    // if (skills) {
+    //   try {
+    //     parsedSkills = JSON.parse(skills);
+    //   } catch {
+    //     return res.status(400).json({ message: "Invalid skills format" });
+    //   }
+    // }
+
+    // if (skillsToLearn) {
+    //   try {
+    //     parsedSkillsToLearn = JSON.parse(skillsToLearn);
+    //   } catch {
+    //     return res.status(400).json({ message: "Invalid skillsToLearn format" });
+    //   }
+    // }
+
+    if (skills !== undefined) {
       try {
         parsedSkills = JSON.parse(skills);
       } catch {
         return res.status(400).json({ message: "Invalid skills format" });
+      }
+    }
+
+    if (skillsToLearn !== undefined) {
+      try {
+        parsedSkillsToLearn = JSON.parse(skillsToLearn);
+      } catch {
+        return res.status(400).json({ message: "Invalid skillsToLearn format" });
       }
     }
 
@@ -331,7 +358,10 @@ export const updateUser = async (req: Request, res: Response) => {
     if (email) updateData.email = email;
     if (mobile_number) updateData.mobile_number = mobile_number;
     if (about !== undefined) updateData.about = about;
-    if (skills) updateData.skills = parsedSkills;
+    if (skills !== undefined) updateData.skills = parsedSkills;
+
+    if (skillsToLearn !== undefined)
+      updateData.skillsToLearn = parsedSkillsToLearn;
 
     if (req.file) {
       updateData.image = req.file.filename;
