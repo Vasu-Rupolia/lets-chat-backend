@@ -304,8 +304,8 @@ export const updateUser = async (req: Request, res: Response) => {
       skillsToLearn
     } = req.body;
 
-    let parsedSkills: string[] = [];
-    let parsedSkillsToLearn: string[] = [];
+    // let parsedSkills: string[] = [];
+    // let parsedSkillsToLearn: string[] = [];
 
     // if (skills) {
     //   try {
@@ -323,19 +323,30 @@ export const updateUser = async (req: Request, res: Response) => {
     //   }
     // }
 
+    let parsedSkills: string[] = [];
+    let parsedSkillsToLearn: string[] = [];
+
     if (skills !== undefined) {
-      try {
-        parsedSkills = JSON.parse(skills);
-      } catch {
-        return res.status(400).json({ message: "Invalid skills format" });
+      if (Array.isArray(skills)) {
+        parsedSkills = skills;
+      } else if (typeof skills === "string") {
+        try {
+          parsedSkills = JSON.parse(skills);
+        } catch {
+          return res.status(400).json({ message: "Invalid skills format" });
+        }
       }
     }
 
     if (skillsToLearn !== undefined) {
-      try {
-        parsedSkillsToLearn = JSON.parse(skillsToLearn);
-      } catch {
-        return res.status(400).json({ message: "Invalid skillsToLearn format" });
+      if (Array.isArray(skillsToLearn)) {
+        parsedSkillsToLearn = skillsToLearn;
+      } else if (typeof skillsToLearn === "string") {
+        try {
+          parsedSkillsToLearn = JSON.parse(skillsToLearn);
+        } catch {
+          return res.status(400).json({ message: "Invalid skillsToLearn format" });
+        }
       }
     }
 
