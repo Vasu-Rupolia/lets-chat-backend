@@ -42,13 +42,149 @@ import { sendResetEmail } from "../utils/mailer";
 //   }
 // };
 
+// export const getUsersList: any = async (req: AuthRequest, res: Response) => {
+//   try {
+//     const page = Number(req.query.page) || 1;
+//     const limit = Number(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     const filter = req.query.filter || "matched"; // default matched
+//     const currentUserId = req.user?.id;
+
+//     if (!currentUserId) {
+//       return res.status(401).json({
+//         message: "Unauthorized",
+//       });
+//     }
+
+//     // 🔥 Get current user skills
+//     const meUser = await User.findById(currentUserId)
+//       .select("skills")
+//       .lean();
+
+//     const mySkills: string[] = meUser?.skills || [];
+
+//     // 🔥 Get users (exclude self)
+//     const users = await User.find({ _id: { $ne: currentUserId } })
+//       .skip(skip)
+//       .limit(limit)
+//       .lean();
+
+//     // 🔥 Friend Requests (sent)
+//     const sentRequests = await FriendRequest.find({
+//       sender: currentUserId,
+//       status: "pending",
+//     }).select("receiver");
+
+//     const sentSet = new Set(
+//       sentRequests.map((r) => r.receiver.toString())
+//     );
+
+//     // 🔥 Friend Requests (received)
+//     const receivedRequests = await FriendRequest.find({
+//       receiver: currentUserId,
+//       status: "pending",
+//     }).select("sender");
+
+//     const receivedSet = new Set(
+//       receivedRequests.map((r) => r.sender.toString())
+//     );
+
+//     // 🔥 Friends
+//     const friends = await Friend.find({
+//       $or: [
+//         { user1: currentUserId },
+//         { user2: currentUserId },
+//       ],
+//     }).lean();
+
+//     const friendSet = new Set<string>();
+//     const me = String(currentUserId);
+
+//     friends.forEach((f: any) => {
+//       const user1 = String(f.user1);
+//       const user2 = String(f.user2);
+
+//       if (user1 === me) {
+//         friendSet.add(user2);
+//       } else {
+//         friendSet.add(user1);
+//       }
+//     });
+
+//     // 🔥 Attach flags + matching logic
+//     let usersWithFlags = users.map((user: any) => {
+//       const id = user._id.toString();
+
+//       const userSkills: string[] = user.skills || [];
+
+//       const commonSkills = userSkills.filter((skill: string) =>
+//         mySkills.some(
+//           (my) => my.toLowerCase() === skill.toLowerCase()
+//         )
+//       );
+
+//       const matchCount = commonSkills.length;
+
+//       const matchPercentage = mySkills.length
+//         ? Math.round((matchCount / mySkills.length) * 100)
+//         : 0;
+
+//       return {
+//         ...user,
+//         hasSentRequest: sentSet.has(id),
+//         hasReceivedRequest: receivedSet.has(id),
+//         isFriend: friendSet.has(id),
+//         matchPercentage,
+//         matchCount,
+//         commonSkills,
+//       };
+//     });
+
+//     // 🔥 SORT by match %
+//     usersWithFlags.sort(
+//       (a, b) => b.matchPercentage - a.matchPercentage
+//     );
+
+//     // 🔥 FILTER
+//     if (filter === "matched") {
+//       usersWithFlags = usersWithFlags.filter(
+//         (u) => u.matchPercentage > 0
+//       );
+//     }
+
+//     // 🔥 TOTAL COUNT (for pagination)
+//     const total = await User.countDocuments({
+//       _id: { $ne: currentUserId },
+//     });
+
+//     return res.status(200).json({
+//       message: "Users fetched successfully",
+//       success: true,
+//       data: usersWithFlags,
+//       pagination: {
+//         total,
+//         page,
+//         limit,
+//         totalPages: Math.ceil(total / limit),
+//       },
+//     });
+
+//   } catch (error: any) {
+//     return res.status(500).json({
+//       message: "Server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const getUsersList: any = async (req: AuthRequest, res: Response) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const filter = req.query.filter || "matched"; // default matched
+    const filter = (req.query.filter as string) || "all";
     const currentUserId = req.user?.id;
 
     if (!currentUserId) {
@@ -57,12 +193,13 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 🔥 Get current user skills
+    // 🔥 Current user (skills + skillsToLearn)
     const meUser = await User.findById(currentUserId)
-      .select("skills")
+      .select("skills skillsToLearn")
       .lean();
 
     const mySkills: string[] = meUser?.skills || [];
+    const mySkillsToLearn: string[] = meUser?.skillsToLearn || [];
 
     // 🔥 Get users (exclude self)
     const users = await User.find({ _id: { $ne: currentUserId } })
@@ -76,9 +213,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       status: "pending",
     }).select("receiver");
 
-    const sentSet = new Set(
-      sentRequests.map((r) => r.receiver.toString())
-    );
+    const sentSet = new Set(sentRequests.map((r) => r.receiver.toString()));
 
     // 🔥 Friend Requests (received)
     const receivedRequests = await FriendRequest.find({
@@ -86,16 +221,11 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       status: "pending",
     }).select("sender");
 
-    const receivedSet = new Set(
-      receivedRequests.map((r) => r.sender.toString())
-    );
+    const receivedSet = new Set(receivedRequests.map((r) => r.sender.toString()));
 
     // 🔥 Friends
     const friends = await Friend.find({
-      $or: [
-        { user1: currentUserId },
-        { user2: currentUserId },
-      ],
+      $or: [{ user1: currentUserId }, { user2: currentUserId }],
     }).lean();
 
     const friendSet = new Set<string>();
@@ -105,55 +235,81 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       const user1 = String(f.user1);
       const user2 = String(f.user2);
 
-      if (user1 === me) {
-        friendSet.add(user2);
-      } else {
-        friendSet.add(user1);
-      }
+      if (user1 === me) friendSet.add(user2);
+      else friendSet.add(user1);
     });
 
-    // 🔥 Attach flags + matching logic
+    // 🔥 CORE MATCHING ENGINE
     let usersWithFlags = users.map((user: any) => {
       const id = user._id.toString();
 
       const userSkills: string[] = user.skills || [];
+      const userSkillsToLearn: string[] = user.skillsToLearn || [];
 
-      const commonSkills = userSkills.filter((skill: string) =>
+      // 🟢 I can teach them (they want what I know)
+      const iCanTeach = userSkillsToLearn.filter((skill: string) =>
         mySkills.some(
           (my) => my.toLowerCase() === skill.toLowerCase()
         )
       );
 
-      const matchCount = commonSkills.length;
+      // 🔵 They can teach me (I want what they know)
+      const theyCanTeach = userSkills.filter((skill: string) =>
+        mySkillsToLearn.some(
+          (my) => my.toLowerCase() === skill.toLowerCase()
+        )
+      );
 
-      const matchPercentage = mySkills.length
-        ? Math.round((matchCount / mySkills.length) * 100)
-        : 0;
+      const teachCount = iCanTeach.length;
+      const learnCount = theyCanTeach.length;
+
+      // ⭐ FINAL MATCH SCORE (weighted system)
+      const matchScore =
+        teachCount * 3 + learnCount * 5 + (teachCount > 0 && learnCount > 0 ? 10 : 0);
+
+      const isMutual = teachCount > 0 && learnCount > 0;
 
       return {
         ...user,
+
+        // request/friend status
         hasSentRequest: sentSet.has(id),
         hasReceivedRequest: receivedSet.has(id),
         isFriend: friendSet.has(id),
-        matchPercentage,
-        matchCount,
-        commonSkills,
+
+        // matching details
+        iCanTeach,
+        theyCanTeach,
+
+        teachCount,
+        learnCount,
+
+        isMutual,
+        matchScore,
       };
     });
 
-    // 🔥 SORT by match %
-    usersWithFlags.sort(
-      (a, b) => b.matchPercentage - a.matchPercentage
-    );
-
-    // 🔥 FILTER
-    if (filter === "matched") {
-      usersWithFlags = usersWithFlags.filter(
-        (u) => u.matchPercentage > 0
-      );
+    // 🔥 FILTER LOGIC
+    if (filter === "mutual") {
+      usersWithFlags = usersWithFlags.filter((u) => u.isMutual);
     }
 
-    // 🔥 TOTAL COUNT (for pagination)
+    if (filter === "teachMe") {
+      usersWithFlags = usersWithFlags.filter((u) => u.learnCount > 0);
+    }
+
+    if (filter === "learnFromMe") {
+      usersWithFlags = usersWithFlags.filter((u) => u.teachCount > 0);
+    }
+
+    if (filter === "matched") {
+      usersWithFlags = usersWithFlags.filter((u) => u.matchScore > 0);
+    }
+
+    // 🔥 SORT BY BEST MATCH
+    usersWithFlags.sort((a, b) => b.matchScore - a.matchScore);
+
+    // 🔥 TOTAL COUNT
     const total = await User.countDocuments({
       _id: { $ne: currentUserId },
     });
@@ -169,7 +325,6 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
         totalPages: Math.ceil(total / limit),
       },
     });
-
   } catch (error: any) {
     return res.status(500).json({
       message: "Server error",
