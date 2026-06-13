@@ -184,7 +184,6 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const filter = (req.query.filter as string) || "all";
     const currentUserId = req.user?.id;
 
     if (!currentUserId) {
@@ -193,21 +192,21 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 🔥 Current user (skills + skillsToLearn)
+    // Get current user (IMPORTANT FIELDS ONLY)
     const meUser = await User.findById(currentUserId)
       .select("skills skillsToLearn")
       .lean();
 
-    const mySkills: string[] = meUser?.skills || [];
-    const mySkillsToLearn: string[] = meUser?.skillsToLearn || [];
+    const mySkills: string[] = meUser?.skills || []; // I can teach
+    const mySkillsToLearn: string[] = meUser?.skillsToLearn || []; // I want to learn
 
-    // 🔥 Get users (exclude self)
+    // Get other users
     const users = await User.find({ _id: { $ne: currentUserId } })
       .skip(skip)
       .limit(limit)
       .lean();
 
-    // 🔥 Friend Requests (sent)
+    // Friend Requests (sent)
     const sentRequests = await FriendRequest.find({
       sender: currentUserId,
       status: "pending",
@@ -215,7 +214,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
 
     const sentSet = new Set(sentRequests.map((r) => r.receiver.toString()));
 
-    // 🔥 Friend Requests (received)
+    // Friend Requests (received)
     const receivedRequests = await FriendRequest.find({
       receiver: currentUserId,
       status: "pending",
@@ -223,7 +222,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
 
     const receivedSet = new Set(receivedRequests.map((r) => r.sender.toString()));
 
-    // 🔥 Friends
+    // Friends
     const friends = await Friend.find({
       $or: [{ user1: currentUserId }, { user2: currentUserId }],
     }).lean();
@@ -239,77 +238,86 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
       else friendSet.add(user1);
     });
 
-    // 🔥 CORE MATCHING ENGINE
+    // CORE MATCHING ENGINE (REAL LOGIC)
     let usersWithFlags = users.map((user: any) => {
       const id = user._id.toString();
 
-      const userSkills: string[] = user.skills || [];
-      const userSkillsToLearn: string[] = user.skillsToLearn || [];
+      const userSkills: string[] = user.skills || []; // they can teach
+      const userSkillsToLearn: string[] = user.skillsToLearn || []; // they want to learn
 
-      // 🟢 I can teach them (they want what I know)
-      const iCanTeach = userSkillsToLearn.filter((skill: string) =>
+      // Skills THEY want that I can teach
+      const skillsTheyWantFromMe = userSkillsToLearn.filter((skill) =>
         mySkills.some(
           (my) => my.toLowerCase() === skill.toLowerCase()
         )
       );
 
-      // 🔵 They can teach me (I want what they know)
-      const theyCanTeach = userSkills.filter((skill: string) =>
+      // 🔵 Skills I want that THEY can teach
+      const skillsICanLearnFromThem = userSkills.filter((skill) =>
         mySkillsToLearn.some(
           (my) => my.toLowerCase() === skill.toLowerCase()
         )
       );
 
-      const teachCount = iCanTeach.length;
-      const learnCount = theyCanTeach.length;
+      const teachScore = skillsTheyWantFromMe.length;
+      const learnScore = skillsICanLearnFromThem.length;
 
-      // ⭐ FINAL MATCH SCORE (weighted system)
+      // FINAL SCORE (balanced barter system)
       const matchScore =
-        teachCount * 3 + learnCount * 5 + (teachCount > 0 && learnCount > 0 ? 10 : 0);
+        teachScore * 4 +
+        learnScore * 6 +
+        (teachScore > 0 && learnScore > 0 ? 15 : 0);
 
-      const isMutual = teachCount > 0 && learnCount > 0;
+      const isMutual = teachScore > 0 && learnScore > 0;
 
       return {
         ...user,
 
-        // request/friend status
+        // friend status
         hasSentRequest: sentSet.has(id),
         hasReceivedRequest: receivedSet.has(id),
         isFriend: friendSet.has(id),
 
-        // matching details
-        iCanTeach,
-        theyCanTeach,
+        // matching details (CLEAR NAMING)
+        skillsTheyWantFromMe,
+        skillsICanLearnFromThem,
 
-        teachCount,
-        learnCount,
+        teachScore,
+        learnScore,
 
         isMutual,
+
         matchScore,
       };
     });
 
-    // 🔥 FILTER LOGIC
+    // SORT BY BEST MATCH
+    // usersWithFlags.sort((a, b) => b.matchScore - a.matchScore);
+
+    usersWithFlags = usersWithFlags
+      .filter(u => u.matchScore > 0)
+      .sort((a, b) => b.matchScore - a.matchScore);
+
+    // FILTER (OPTIONAL BUT CLEAN)
+    const filter = (req.query.filter as string) || "all";
+
     if (filter === "mutual") {
       usersWithFlags = usersWithFlags.filter((u) => u.isMutual);
     }
 
     if (filter === "teachMe") {
-      usersWithFlags = usersWithFlags.filter((u) => u.learnCount > 0);
+      usersWithFlags = usersWithFlags.filter((u) => u.learnScore > 0);
     }
 
     if (filter === "learnFromMe") {
-      usersWithFlags = usersWithFlags.filter((u) => u.teachCount > 0);
+      usersWithFlags = usersWithFlags.filter((u) => u.teachScore > 0);
     }
 
     if (filter === "matched") {
       usersWithFlags = usersWithFlags.filter((u) => u.matchScore > 0);
     }
 
-    // 🔥 SORT BY BEST MATCH
-    usersWithFlags.sort((a, b) => b.matchScore - a.matchScore);
-
-    // 🔥 TOTAL COUNT
+    // TOTAL COUNT
     const total = await User.countDocuments({
       _id: { $ne: currentUserId },
     });
