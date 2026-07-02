@@ -295,7 +295,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
     // usersWithFlags.sort((a, b) => b.matchScore - a.matchScore);
 
     usersWithFlags = usersWithFlags
-      .filter(u => u.matchScore > 0)
+      // .filter(u => u.matchScore > 0)
       .sort((a, b) => b.matchScore - a.matchScore);
 
     // FILTER (OPTIONAL BUT CLEAN)
