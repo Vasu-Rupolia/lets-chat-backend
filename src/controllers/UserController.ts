@@ -441,8 +441,12 @@ export const getUsersList = async (
       const teachScore = skillsTheyWantFromMe.length;
       const learnScore = skillsICanLearnFromThem.length;
 
-      const isMutual =
-        teachScore > 0 && learnScore > 0;
+      const isLearningMatch = learnScore > 0;
+      const isTeachingMatch = teachScore > 0;
+      const isMutual = isLearningMatch && isTeachingMatch;
+      
+      // const isMutual =
+      //   teachScore > 0 && learnScore > 0;
 
       const matchScore =
         teachScore * 4 +
@@ -474,10 +478,22 @@ export const getUsersList = async (
     );
 
     // Best matches tab
+    // if (filter === "matched") {
+    //   usersWithFlags = usersWithFlags.filter(
+    //     (user) => user.matchScore > 0
+    //   );
+    // }
+
     if (filter === "matched") {
-      usersWithFlags = usersWithFlags.filter(
-        (user) => user.matchScore > 0
-      );
+        usersWithFlags = usersWithFlags.filter(
+            u => u.isLearningMatch || u.isTeachingMatch
+        );
+    }
+
+    if (filter === "mutual") {
+        usersWithFlags = usersWithFlags.filter(
+            u => u.isMutual
+        );
     }
 
     // Pagination AFTER filtering
