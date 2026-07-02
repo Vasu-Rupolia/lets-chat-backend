@@ -178,154 +178,323 @@ import { sendResetEmail } from "../utils/mailer";
 //   }
 // };
 
-export const getUsersList: any = async (req: AuthRequest, res: Response) => {
+// export const getUsersList: any = async (req: AuthRequest, res: Response) => {
+//   try {
+//     const page = Number(req.query.page) || 1;
+//     const limit = Number(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     const currentUserId = req.user?.id;
+
+//     if (!currentUserId) {
+//       return res.status(401).json({
+//         message: "Unauthorized",
+//       });
+//     }
+
+//     // Get current user (IMPORTANT FIELDS ONLY)
+//     const meUser = await User.findById(currentUserId)
+//       .select("skills skillsToLearn")
+//       .lean();
+
+//     const mySkills: string[] = meUser?.skills || []; // I can teach
+//     const mySkillsToLearn: string[] = meUser?.skillsToLearn || []; // I want to learn
+
+//     // Get other users
+//     const users = await User.find({ _id: { $ne: currentUserId } })
+//       .skip(skip)
+//       .limit(limit)
+//       .lean();
+
+//     // Friend Requests (sent)
+//     const sentRequests = await FriendRequest.find({
+//       sender: currentUserId,
+//       status: "pending",
+//     }).select("receiver");
+
+//     const sentSet = new Set(sentRequests.map((r) => r.receiver.toString()));
+
+//     // Friend Requests (received)
+//     const receivedRequests = await FriendRequest.find({
+//       receiver: currentUserId,
+//       status: "pending",
+//     }).select("sender");
+
+//     const receivedSet = new Set(receivedRequests.map((r) => r.sender.toString()));
+
+//     // Friends
+//     const friends = await Friend.find({
+//       $or: [{ user1: currentUserId }, { user2: currentUserId }],
+//     }).lean();
+
+//     const friendSet = new Set<string>();
+//     const me = String(currentUserId);
+
+//     friends.forEach((f: any) => {
+//       const user1 = String(f.user1);
+//       const user2 = String(f.user2);
+
+//       if (user1 === me) friendSet.add(user2);
+//       else friendSet.add(user1);
+//     });
+
+//     // CORE MATCHING ENGINE (REAL LOGIC)
+//     let usersWithFlags = users.map((user: any) => {
+//       const id = user._id.toString();
+
+//       const userSkills: string[] = user.skills || []; // they can teach
+//       const userSkillsToLearn: string[] = user.skillsToLearn || []; // they want to learn
+
+//       // Skills THEY want that I can teach
+//       const skillsTheyWantFromMe = userSkillsToLearn.filter((skill) =>
+//         mySkills.some(
+//           (my) => my.toLowerCase() === skill.toLowerCase()
+//         )
+//       );
+
+//       // 🔵 Skills I want that THEY can teach
+//       const skillsICanLearnFromThem = userSkills.filter((skill) =>
+//         mySkillsToLearn.some(
+//           (my) => my.toLowerCase() === skill.toLowerCase()
+//         )
+//       );
+
+//       const teachScore = skillsTheyWantFromMe.length;
+//       const learnScore = skillsICanLearnFromThem.length;
+
+//       // FINAL SCORE (balanced barter system)
+//       const matchScore =
+//         teachScore * 4 +
+//         learnScore * 6 +
+//         (teachScore > 0 && learnScore > 0 ? 15 : 0);
+
+//       const isMutual = teachScore > 0 && learnScore > 0;
+
+//       return {
+//         ...user,
+
+//         // friend status
+//         hasSentRequest: sentSet.has(id),
+//         hasReceivedRequest: receivedSet.has(id),
+//         isFriend: friendSet.has(id),
+
+//         // matching details (CLEAR NAMING)
+//         skillsTheyWantFromMe,
+//         skillsICanLearnFromThem,
+
+//         teachScore,
+//         learnScore,
+
+//         isMutual,
+
+//         matchScore,
+//       };
+//     });
+
+//     // SORT BY BEST MATCH
+//     // usersWithFlags.sort((a, b) => b.matchScore - a.matchScore);
+
+//     usersWithFlags = usersWithFlags
+//       // .filter(u => u.matchScore > 0)
+//       .sort((a, b) => b.matchScore - a.matchScore);
+
+//     // FILTER (OPTIONAL BUT CLEAN)
+//     const filter = (req.query.filter as string) || "all";
+
+//     if (filter === "mutual") {
+//       usersWithFlags = usersWithFlags.filter((u) => u.isMutual);
+//     }
+
+//     if (filter === "teachMe") {
+//       usersWithFlags = usersWithFlags.filter((u) => u.learnScore > 0);
+//     }
+
+//     if (filter === "learnFromMe") {
+//       usersWithFlags = usersWithFlags.filter((u) => u.teachScore > 0);
+//     }
+
+//     if (filter === "matched") {
+//       usersWithFlags = usersWithFlags.filter((u) => u.matchScore > 0);
+//     }
+
+//     // TOTAL COUNT
+//     const total = await User.countDocuments({
+//       _id: { $ne: currentUserId },
+//     });
+
+//     return res.status(200).json({
+//       message: "Users fetched successfully",
+//       success: true,
+//       data: usersWithFlags,
+//       pagination: {
+//         total,
+//         page,
+//         limit,
+//         totalPages: Math.ceil(total / limit),
+//       },
+//     });
+//   } catch (error: any) {
+//     return res.status(500).json({
+//       message: "Server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+export const getUsersList = async (
+  req: AuthRequest,
+  res: Response
+): Promise<any> => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
 
     const currentUserId = req.user?.id;
 
     if (!currentUserId) {
       return res.status(401).json({
+        success: false,
         message: "Unauthorized",
       });
     }
 
-    // Get current user (IMPORTANT FIELDS ONLY)
+    const filter = (req.query.filter as string) || "all";
+
+    // Current user
     const meUser = await User.findById(currentUserId)
       .select("skills skillsToLearn")
       .lean();
 
-    const mySkills: string[] = meUser?.skills || []; // I can teach
-    const mySkillsToLearn: string[] = meUser?.skillsToLearn || []; // I want to learn
+    const mySkills: string[] = meUser?.skills || [];
+    const mySkillsToLearn: string[] = meUser?.skillsToLearn || [];
 
-    // Get other users
-    const users = await User.find({ _id: { $ne: currentUserId } })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // Fetch all users except myself
+    const users = await User.find({
+      _id: { $ne: currentUserId },
+    }).lean();
 
-    // Friend Requests (sent)
+    // Sent requests
     const sentRequests = await FriendRequest.find({
       sender: currentUserId,
       status: "pending",
     }).select("receiver");
 
-    const sentSet = new Set(sentRequests.map((r) => r.receiver.toString()));
+    const sentSet = new Set(
+      sentRequests.map((r) => r.receiver.toString())
+    );
 
-    // Friend Requests (received)
+    // Received requests
     const receivedRequests = await FriendRequest.find({
       receiver: currentUserId,
       status: "pending",
     }).select("sender");
 
-    const receivedSet = new Set(receivedRequests.map((r) => r.sender.toString()));
+    const receivedSet = new Set(
+      receivedRequests.map((r) => r.sender.toString())
+    );
 
     // Friends
     const friends = await Friend.find({
-      $or: [{ user1: currentUserId }, { user2: currentUserId }],
+      $or: [
+        { user1: currentUserId },
+        { user2: currentUserId },
+      ],
     }).lean();
 
     const friendSet = new Set<string>();
-    const me = String(currentUserId);
 
-    friends.forEach((f: any) => {
-      const user1 = String(f.user1);
-      const user2 = String(f.user2);
-
-      if (user1 === me) friendSet.add(user2);
-      else friendSet.add(user1);
+    friends.forEach((friend: any) => {
+      if (friend.user1.toString() === currentUserId.toString()) {
+        friendSet.add(friend.user2.toString());
+      } else {
+        friendSet.add(friend.user1.toString());
+      }
     });
 
-    // CORE MATCHING ENGINE (REAL LOGIC)
     let usersWithFlags = users.map((user: any) => {
-      const id = user._id.toString();
+      const userId = user._id.toString();
 
-      const userSkills: string[] = user.skills || []; // they can teach
-      const userSkillsToLearn: string[] = user.skillsToLearn || []; // they want to learn
+      const userSkills: string[] = user.skills || [];
+      const userSkillsToLearn: string[] =
+        user.skillsToLearn || [];
 
-      // Skills THEY want that I can teach
-      const skillsTheyWantFromMe = userSkillsToLearn.filter((skill) =>
-        mySkills.some(
-          (my) => my.toLowerCase() === skill.toLowerCase()
-        )
+      // Skills I can teach them
+      const skillsTheyWantFromMe = userSkillsToLearn.filter(
+        (skill) =>
+          mySkills.some(
+            (mySkill) =>
+              mySkill.toLowerCase() ===
+              skill.toLowerCase()
+          )
       );
 
-      // 🔵 Skills I want that THEY can teach
-      const skillsICanLearnFromThem = userSkills.filter((skill) =>
-        mySkillsToLearn.some(
-          (my) => my.toLowerCase() === skill.toLowerCase()
-        )
+      // Skills they can teach me
+      const skillsICanLearnFromThem = userSkills.filter(
+        (skill) =>
+          mySkillsToLearn.some(
+            (mySkill) =>
+              mySkill.toLowerCase() ===
+              skill.toLowerCase()
+          )
       );
 
       const teachScore = skillsTheyWantFromMe.length;
       const learnScore = skillsICanLearnFromThem.length;
 
-      // FINAL SCORE (balanced barter system)
+      const isMutual =
+        teachScore > 0 && learnScore > 0;
+
       const matchScore =
         teachScore * 4 +
         learnScore * 6 +
-        (teachScore > 0 && learnScore > 0 ? 15 : 0);
-
-      const isMutual = teachScore > 0 && learnScore > 0;
+        (isMutual ? 15 : 0);
 
       return {
         ...user,
 
-        // friend status
-        hasSentRequest: sentSet.has(id),
-        hasReceivedRequest: receivedSet.has(id),
-        isFriend: friendSet.has(id),
+        // Friend status
+        hasSentRequest: sentSet.has(userId),
+        hasReceivedRequest: receivedSet.has(userId),
+        isFriend: friendSet.has(userId),
 
-        // matching details (CLEAR NAMING)
+        // Match details
         skillsTheyWantFromMe,
         skillsICanLearnFromThem,
 
         teachScore,
         learnScore,
-
         isMutual,
-
         matchScore,
       };
     });
 
-    // SORT BY BEST MATCH
-    // usersWithFlags.sort((a, b) => b.matchScore - a.matchScore);
+    // Sort everyone by match score
+    usersWithFlags.sort(
+      (a, b) => b.matchScore - a.matchScore
+    );
 
-    usersWithFlags = usersWithFlags
-      // .filter(u => u.matchScore > 0)
-      .sort((a, b) => b.matchScore - a.matchScore);
-
-    // FILTER (OPTIONAL BUT CLEAN)
-    const filter = (req.query.filter as string) || "all";
-
-    if (filter === "mutual") {
-      usersWithFlags = usersWithFlags.filter((u) => u.isMutual);
+    // Best matches tab
+    if (filter === "bestMatches") {
+      usersWithFlags = usersWithFlags.filter(
+        (user) => user.matchScore > 0
+      );
     }
 
-    if (filter === "teachMe") {
-      usersWithFlags = usersWithFlags.filter((u) => u.learnScore > 0);
-    }
+    // Pagination AFTER filtering
+    const total = usersWithFlags.length;
 
-    if (filter === "learnFromMe") {
-      usersWithFlags = usersWithFlags.filter((u) => u.teachScore > 0);
-    }
+    const start = (page - 1) * limit;
+    const end = start + limit;
 
-    if (filter === "matched") {
-      usersWithFlags = usersWithFlags.filter((u) => u.matchScore > 0);
-    }
-
-    // TOTAL COUNT
-    const total = await User.countDocuments({
-      _id: { $ne: currentUserId },
-    });
+    const paginatedUsers = usersWithFlags.slice(
+      start,
+      end
+    );
 
     return res.status(200).json({
-      message: "Users fetched successfully",
       success: true,
-      data: usersWithFlags,
+      message: "Users fetched successfully",
+      data: paginatedUsers,
       pagination: {
         total,
         page,
@@ -335,6 +504,7 @@ export const getUsersList: any = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     return res.status(500).json({
+      success: false,
       message: "Server error",
       error: error.message,
     });
