@@ -474,7 +474,7 @@ export const getUsersList = async (
     );
 
     // Best matches tab
-    if (filter === "bestMatches") {
+    if (filter === "matched") {
       usersWithFlags = usersWithFlags.filter(
         (user) => user.matchScore > 0
       );
